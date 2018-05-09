@@ -165,6 +165,7 @@ impl FileTracer {
         let mut buffer = String::new();
         buffer.push_str(&format!("==>> Trace ID: {}\n", context.trace_id));
         buffer.push_str(&format!("===> Span ID: {}\n", context.span_id));
+        buffer.push_str(&format!("===> Span Name: {}\n", span.name()));
 
         let finish = span.finish_time();
         let start = span.start_time().clone();
@@ -516,7 +517,10 @@ mod tests {
             let mut buffer = buffer.split('\n');
             assert_eq!(buffer.next().unwrap(), "==>> Trace ID: 123456");
 
-            let buffer: Vec<&str> = buffer.skip(2).collect();
+            let mut buffer = buffer.skip(1); // skip Span ID
+            assert_eq!(buffer.next().unwrap(), "===> Span Name: test1");
+
+            let buffer: Vec<&str> = buffer.skip(1).collect(); // skip Span Duration
             assert_eq!(buffer, [
                 "===> References: [",
                 "===>   * Child of span ID: 123",
