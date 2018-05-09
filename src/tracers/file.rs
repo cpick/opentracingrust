@@ -174,66 +174,78 @@ impl FileTracer {
         let delta = secs + duration.subsec_nanos() as f64 * 1e-9;
         buffer.push_str(&format!("===> Span Duration: {}\n", delta));
 
-        buffer.push_str("===> References: [\n");
-        for reference in span.references() {
-            let ref_id = match reference {
-                &SpanReference::ChildOf(ref parent) |
-                &SpanReference::FollowsFrom(ref parent) => {
-                    let context = parent.impl_context::<FileTracerContext>();
-                    let context = context.expect(
-                        "Unsupported span context, was it created by FileTracer?"
-                    );
-                    context.span_id
-                }
-            };
-            let ref_type = match reference {
-                &SpanReference::ChildOf(_) => "Child of span ID",
-                &SpanReference::FollowsFrom(_) => "Follows from span ID"
-            };
-            buffer.push_str(&format!("===>   * {}: {}\n", ref_type, ref_id));
+        let references = span.references();
+        if !references.is_empty() {
+            buffer.push_str("===> References: [\n");
+            for reference in references {
+                let ref_id = match reference {
+                    &SpanReference::ChildOf(ref parent) |
+                    &SpanReference::FollowsFrom(ref parent) => {
+                        let context = parent.impl_context::<FileTracerContext>();
+                        let context = context.expect(
+                            "Unsupported span context, was it created by FileTracer?"
+                        );
+                        context.span_id
+                    }
+                };
+                let ref_type = match reference {
+                    &SpanReference::ChildOf(_) => "Child of span ID",
+                    &SpanReference::FollowsFrom(_) => "Follows from span ID"
+                };
+                buffer.push_str(&format!("===>   * {}: {}\n", ref_type, ref_id));
+            }
+            buffer.push_str("===> ]\n");
         }
-        buffer.push_str("===> ]\n");
 
-        buffer.push_str("===> Baggage items: [\n");
-        for (key, value) in span.context().baggage_items() {
-            buffer.push_str(&format!("===>   * {}: {}\n", key, value));
+        let baggage_items = span.context().baggage_items();
+        if 0 != baggage_items.len() {
+            buffer.push_str("===> Baggage items: [\n");
+            for (key, value) in baggage_items {
+                buffer.push_str(&format!("===>   * {}: {}\n", key, value));
+            }
+            buffer.push_str("===> ]\n");
         }
-        buffer.push_str("===> ]\n");
 
         let mut tags: Vec<(&String, &TagValue)> = span.tags().iter().collect();
-        tags.sort_by_key(|&(k, _)| k);
-        buffer.push_str("===> Tags: [\n");
-        for (tag, value) in tags {
-            let value = match value {
-                &TagValue::Boolean(v) => v.to_string(),
-                &TagValue::Float(v) => v.to_string(),
-                &TagValue::Integer(v) => v.to_string(),
-                &TagValue::String(ref v) => v.clone(),
-            };
-            buffer.push_str(&format!("===>   * {}: {}\n", tag, value));
-        }
-        buffer.push_str("===> ]\n");
-
-        buffer.push_str("===> Logs: [\n");
-        for log in span.logs().iter() {
-            let timestamp = log.timestamp().unwrap()
-                .duration_since(UNIX_EPOCH).unwrap()
-                .as_secs();
-            buffer.push_str(&format!("===>   - {}:\n", timestamp));
-
-            let mut fields: Vec<(&String, &LogValue)> = log.iter().collect();
-            fields.sort_by_key(|&(k, _)| k);
-            for (key, value) in fields {
+        if !tags.is_empty() {
+            tags.sort_by_key(|&(k, _)| k);
+            buffer.push_str("===> Tags: [\n");
+            for (tag, value) in tags {
                 let value = match value {
-                    &LogValue::Boolean(v) => v.to_string(),
-                    &LogValue::Float(v) => v.to_string(),
-                    &LogValue::Integer(v) => v.to_string(),
-                    &LogValue::String(ref v) => v.clone(),
+                    &TagValue::Boolean(v) => v.to_string(),
+                    &TagValue::Float(v) => v.to_string(),
+                    &TagValue::Integer(v) => v.to_string(),
+                    &TagValue::String(ref v) => v.clone(),
                 };
-                buffer.push_str(&format!("===>     * {}: {}\n", key, value));
+                buffer.push_str(&format!("===>   * {}: {}\n", tag, value));
             }
+            buffer.push_str("===> ]\n");
         }
-        buffer.push_str("===> ]\n");
+
+        let logs = span.logs();
+        if !logs.is_empty() {
+            buffer.push_str("===> Logs: [\n");
+            for log in span.logs().iter() {
+                let timestamp = log.timestamp().unwrap()
+                    .duration_since(UNIX_EPOCH).unwrap()
+                    .as_secs();
+                buffer.push_str(&format!("===>   - {}:\n", timestamp));
+
+                let mut fields: Vec<(&String, &LogValue)> = log.iter().collect();
+                fields.sort_by_key(|&(k, _)| k);
+                for (key, value) in fields {
+                    let value = match value {
+                        &LogValue::Boolean(v) => v.to_string(),
+                        &LogValue::Float(v) => v.to_string(),
+                        &LogValue::Integer(v) => v.to_string(),
+                        &LogValue::String(ref v) => v.clone(),
+                    };
+                    buffer.push_str(&format!("===>     * {}: {}\n", key, value));
+                }
+            }
+            buffer.push_str("===> ]\n");
+        }
+
         file.write_all(buffer.as_bytes())
     }
 }
