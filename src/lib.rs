@@ -175,6 +175,7 @@ pub use self::span_context::ImplContextBox;
 pub use self::span_context::SpanContext;
 pub use self::span_context::SpanReferenceAware;
 
+pub use self::span::AutoFinishingSpan;
 pub use self::span::FinishedSpan;
 pub use self::span::Span;
 pub use self::span::SpanReceiver;
